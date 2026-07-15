@@ -684,8 +684,28 @@ def run_full_analysis(
         if stock_codes is None:
             config.refresh_stock_list()
 
+        # 推荐驱动分析：未显式指定股票时，用每日推荐结果替代 STOCK_LIST；
+        # 推荐失败或为空时自动回退 STOCK_LIST，不阻断主流程
+        recommended_codes: Optional[List[str]] = None
+        if stock_codes is None and getattr(config, "recommend_analysis_enabled", False):
+            try:
+                from src.services.stock_recommender import get_recommended_stocks
+
+                recommended_codes = get_recommended_stocks(config)
+            except Exception as exc:
+                logger.warning("个股推荐失败，回退 STOCK_LIST: %s", exc)
+            if recommended_codes:
+                logger.info("今日推荐个股（推荐驱动分析）: %s", recommended_codes)
+            else:
+                logger.warning("个股推荐结果为空，回退 STOCK_LIST")
+                recommended_codes = None
+
         # Issue #373: Trading day filter (per-stock, per-market)
-        effective_codes = stock_codes if stock_codes is not None else config.stock_list
+        effective_codes = (
+            stock_codes
+            if stock_codes is not None
+            else (recommended_codes if recommended_codes is not None else config.stock_list)
+        )
         filtered_codes, effective_region, should_skip = _compute_trading_day_filter(
             config, args, effective_codes
         )

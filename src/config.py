@@ -736,6 +736,14 @@ class Config:
     alphasift_enabled: bool = False
     alphasift_install_spec: str = DEFAULT_ALPHASIFT_INSTALL_SPEC
 
+    # === 推荐驱动分析（个股分析基于每日推荐结果而非固定 STOCK_LIST）===
+    recommend_analysis_enabled: bool = False
+    us_recommend_top_n: int = 5
+    cn_recommend_top_n: int = 0
+    us_recommend_source: str = "tradingview"  # tradingview | builtin
+    us_recommend_universe: List[str] = field(default_factory=list)
+    cn_recommend_strategy: str = "balanced_alpha"
+
     # === AI 分析配置 ===
     generation_backend: str = LITELLM_BACKEND_ID
     generation_fallback_backend: str = LITELLM_BACKEND_ID
@@ -2090,6 +2098,24 @@ class Config:
                 if os.getenv('ALPHASIFT_INSTALL_SPEC') is None
                 else os.getenv('ALPHASIFT_INSTALL_SPEC', '').strip()
             ),
+            recommend_analysis_enabled=parse_env_bool(
+                os.getenv('RECOMMEND_ANALYSIS_ENABLED'), default=False
+            ),
+            us_recommend_top_n=parse_env_int(
+                os.getenv('US_RECOMMEND_TOP_N'), 5,
+                field_name='US_RECOMMEND_TOP_N', minimum=0,
+            ),
+            cn_recommend_top_n=parse_env_int(
+                os.getenv('CN_RECOMMEND_TOP_N'), 0,
+                field_name='CN_RECOMMEND_TOP_N', minimum=0,
+            ),
+            us_recommend_source=(os.getenv('US_RECOMMEND_SOURCE', 'tradingview').strip().lower() or 'tradingview'),
+            us_recommend_universe=[
+                c.strip().upper()
+                for c in os.getenv('US_RECOMMEND_UNIVERSE', '').split(',')
+                if c.strip()
+            ],
+            cn_recommend_strategy=(os.getenv('CN_RECOMMEND_STRATEGY', 'balanced_alpha').strip() or 'balanced_alpha'),
         )
     
     @classmethod
@@ -2780,11 +2806,18 @@ class Config:
 
         # --- Stock list ---
         if not self.stock_list:
-            issues.append(ConfigIssue(
-                severity="error",
-                message="未配置 STOCK_LIST。请设置至少一个股票代码，例如：600519,hk00700,AAPL。",
-                field="STOCK_LIST",
-            ))
+            if self.recommend_analysis_enabled:
+                issues.append(ConfigIssue(
+                    severity="info",
+                    message="STOCK_LIST 为空：已启用推荐驱动分析（RECOMMEND_ANALYSIS_ENABLED=true），个股分析将基于每日推荐结果。",
+                    field="STOCK_LIST",
+                ))
+            else:
+                issues.append(ConfigIssue(
+                    severity="error",
+                    message="未配置 STOCK_LIST。请设置至少一个股票代码，例如：600519,hk00700,AAPL。",
+                    field="STOCK_LIST",
+                ))
         elif self.stock_email_groups:
             from data_provider.base import normalize_stock_code
             configured_stock_set = {

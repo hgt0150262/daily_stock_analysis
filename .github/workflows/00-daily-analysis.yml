@@ -384,6 +384,17 @@ jobs:
           MARKET_REVIEW_COLOR_SCHEME: ${{ vars.MARKET_REVIEW_COLOR_SCHEME || secrets.MARKET_REVIEW_COLOR_SCHEME || 'green_up' }}
           
           # ==========================================
+          # 推荐驱动分析（RECOMMEND_ANALYSIS_ENABLED=true 时个股分析基于每日推荐结果）
+          # ==========================================
+          RECOMMEND_ANALYSIS_ENABLED: ${{ vars.RECOMMEND_ANALYSIS_ENABLED || secrets.RECOMMEND_ANALYSIS_ENABLED || 'false' }}
+          US_RECOMMEND_TOP_N: ${{ vars.US_RECOMMEND_TOP_N || secrets.US_RECOMMEND_TOP_N }}
+          US_RECOMMEND_SOURCE: ${{ vars.US_RECOMMEND_SOURCE || secrets.US_RECOMMEND_SOURCE }}
+          US_RECOMMEND_UNIVERSE: ${{ vars.US_RECOMMEND_UNIVERSE || secrets.US_RECOMMEND_UNIVERSE }}
+          CN_RECOMMEND_TOP_N: ${{ vars.CN_RECOMMEND_TOP_N || secrets.CN_RECOMMEND_TOP_N }}
+          CN_RECOMMEND_STRATEGY: ${{ vars.CN_RECOMMEND_STRATEGY || secrets.CN_RECOMMEND_STRATEGY }}
+          ALPHASIFT_ENABLED: ${{ vars.ALPHASIFT_ENABLED || secrets.ALPHASIFT_ENABLED || 'false' }}
+
+          # ==========================================
           # 运行配置 ⬅️ 新增！
           # ==========================================
           REPORT_TYPE: ${{ vars.REPORT_TYPE || secrets.REPORT_TYPE || 'simple' }}

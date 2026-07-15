@@ -68,6 +68,9 @@ lxml_html_clean             # Fix for lxml.html.clean ImportError in newer lxml 
 # Report template engine (Report Engine P0)
 jinja2>=3.1.0               # Jinja2 template engine for report rendering
 
+# US stock recommendation base (TradingView Screener scan for RECOMMEND_ANALYSIS_ENABLED)
+tradingview-screener>=3.2.1
+
 # FastAPI Web framework
 fastapi>=0.109.0            # Modern Python Web framework
 uvicorn[standard]>=0.27.0   # ASGI server
