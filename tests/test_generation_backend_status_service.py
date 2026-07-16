@@ -305,6 +305,21 @@ def test_litellm_legacy_key_infers_runtime_model_for_smoke_config() -> None:
     assert _CapturingAnalyzer.configs[-1].litellm_model == "gemini/gemini-3.1-pro-preview"
 
 
+def test_litellm_smoke_config_normalizes_openai_bare_origin() -> None:
+    _CapturingAnalyzer.configs = []
+    effective_map = _litellm_effective_map()
+    effective_map["OPENAI_BASE_URL"] = "https://gateway.example.com"
+    service = GenerationBackendStatusService(
+        effective_map=effective_map,
+        analyzer_factory=lambda config: _CapturingAnalyzer(config),
+    )
+
+    payload = service.smoke_test(mode="json")
+
+    assert payload["success"] is True
+    assert _CapturingAnalyzer.configs[-1].openai_base_url == "https://gateway.example.com/v1"
+
+
 def test_litellm_validation_issues_are_not_available() -> None:
     service = GenerationBackendStatusService(
         effective_map={

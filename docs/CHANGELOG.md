@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [改进] 通知推送与完整 Markdown/微信报告不再重复附加“AI 决策信号”摘要，DecisionSignal 的存储、告警和 Web AI 建议页保持不变。
 - [改进] TickFlow 新增基于申万一级行业池的行业涨跌排行 fallback，并将基本面/市场结构单能力默认超时由 3 秒调整为 8 秒，降低正常慢响应被提前降级的概率。
 - [文档] 补充 macOS 未签名、未公证 DMG 被 Gatekeeper 拦截时的架构选择、安全排查与官方安装包临时放行步骤。
+- [新功能] 新增推荐驱动分析模式（RECOMMEND_ANALYSIS_ENABLED）：个股分析可基于每日推荐结果而非固定 STOCK_LIST，美股默认使用 TradingView Screener 全市场扫描（失败回退内置 yfinance 动量筛选器），A 股可选复用 AlphaSift 策略；推荐失败自动回退 STOCK_LIST。
+- [修复] 港/美股大盘复盘指数行情新增腾讯行情（qt.gtimg.cn）兜底数据源：Yahoo Finance 被限流或返回降级数据（单行历史/NaN 收盘价）时视为失败并自动切换，避免 GitHub Actions 等受限网络环境下指数显示 nan 或涨跌幅恒为 0。
+- [修复] OpenAI 兼容服务仅配置域名根地址时自动补齐标准 `/v1` API 路径，并统一运行时与“测试连接”诊断语义，避免请求误发到服务商网站首页后导致推荐个股和大盘分析全部回退。
 <!-- 新条目格式：- [类型] 描述（类型取值：新功能/改进/修复/文档/测试/chore）-->
 <!-- 每条独立一行追加到本段末尾，无需分类标题，合并时冲突最小 -->
 

@@ -1050,6 +1050,58 @@ class MainScheduleModeTestCase(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         run_full_analysis.assert_called_once_with(config, args, ["600519", "000001"])
 
+    def test_run_full_analysis_uses_recommended_stocks_when_enabled(self) -> None:
+        args = self._make_args(no_market_review=True, no_notify=True)
+        config = self._make_config(
+            recommend_analysis_enabled=True,
+            stock_list=["600519"],
+            refresh_stock_list=MagicMock(),
+            trading_day_check_enabled=False,
+            market_review_enabled=False,
+            single_stock_notify=False,
+            merge_email_notification=False,
+            analysis_delay=0,
+        )
+        pipeline = MagicMock()
+        pipeline.run.return_value = []
+        recommended = ["EIX", "OKTA", "601398"]
+
+        with patch.object(main, "_refresh_stock_index_cache_for_analysis"), \
+             patch("src.services.stock_recommender.get_recommended_stocks", return_value=recommended) as recommend, \
+             patch("main._compute_trading_day_filter", return_value=(recommended, None, False)) as trading_filter, \
+             patch("src.core.pipeline.StockAnalysisPipeline", return_value=pipeline):
+            main.run_full_analysis(config, args, None)
+
+        config.refresh_stock_list.assert_called_once_with()
+        recommend.assert_called_once_with(config)
+        trading_filter.assert_called_once_with(config, args, recommended)
+        self.assertEqual(pipeline.run.call_args.kwargs["stock_codes"], recommended)
+
+    def test_run_full_analysis_falls_back_to_stock_list_when_recommendation_is_empty(self) -> None:
+        args = self._make_args(no_market_review=True, no_notify=True)
+        configured = ["600519", "AAPL"]
+        config = self._make_config(
+            recommend_analysis_enabled=True,
+            stock_list=configured,
+            refresh_stock_list=MagicMock(),
+            trading_day_check_enabled=False,
+            market_review_enabled=False,
+            single_stock_notify=False,
+            merge_email_notification=False,
+            analysis_delay=0,
+        )
+        pipeline = MagicMock()
+        pipeline.run.return_value = []
+
+        with patch.object(main, "_refresh_stock_index_cache_for_analysis"), \
+             patch("src.services.stock_recommender.get_recommended_stocks", return_value=[]), \
+             patch("main._compute_trading_day_filter", return_value=(configured, None, False)) as trading_filter, \
+             patch("src.core.pipeline.StockAnalysisPipeline", return_value=pipeline):
+            main.run_full_analysis(config, args, None)
+
+        trading_filter.assert_called_once_with(config, args, configured)
+        self.assertEqual(pipeline.run.call_args.kwargs["stock_codes"], configured)
+
     def test_run_full_analysis_skips_market_review_when_shared_lock_is_held(self) -> None:
         from src.core.market_review_lock import (
             release_market_review_lock,

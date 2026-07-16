@@ -30,7 +30,63 @@ class TencentFetcher(BaseFetcher):
     allow_empty_daily_data = True
 
     _KLINE_ENDPOINT = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+    _QUOTE_ENDPOINT = "https://qt.gtimg.cn/q="
     _HTTP_TIMEOUT_SECONDS = 8
+
+    # 港/美股主要指数 -> 腾讯行情符号（qt.gtimg.cn），字段含昨收/涨跌幅，
+    # 作为 Yahoo Finance 受限环境（如 GitHub Actions runner）下的大盘复盘兜底
+    _INDEX_SYMBOLS = {
+        "hk": [
+            ("HSI", "hkHSI", "恒生指数"),
+            ("HSTECH", "hkHSTECH", "恒生科技指数"),
+            ("HSCEI", "hkHSCEI", "国企指数"),
+        ],
+        "us": [
+            ("SPX", "usINX", "标普500指数"),
+            ("IXIC", "usIXIC", "纳斯达克综合指数"),
+            ("DJI", "usDJI", "道琼斯工业指数"),
+            ("VIX", "usVIX", "VIX恐慌指数"),
+        ],
+    }
+    _INDEX_MAX_STALE_DAYS = 5
+
+    def get_main_indices(self, region: str = "cn") -> Optional[list[dict[str, Any]]]:
+        """获取主要指数实时行情（腾讯 qt.gtimg.cn），支持港股与美股，A 股返回 None 走其他数据源。"""
+        symbols = self._INDEX_SYMBOLS.get(region)
+        if not symbols:
+            return None
+        query = ",".join(sym for _, sym, _ in symbols)
+        response = requests.get(
+            f"{self._QUOTE_ENDPOINT}{query}",
+            headers={"User-Agent": "Mozilla/5.0", "Referer": "https://gu.qq.com/"},
+            timeout=self._HTTP_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        response.encoding = "gbk"
+        raw = {}
+        for line in response.text.splitlines():
+            if "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            raw[key.strip().removeprefix("v_")] = value.strip().strip(";").strip('"')
+
+        results = []
+        for code, symbol, name in symbols:
+            fields = raw.get(symbol, "").split("~")
+            item = _parse_tencent_index_quote(
+                fields,
+                code=code,
+                name=name,
+                max_stale_days=self._INDEX_MAX_STALE_DAYS,
+            )
+            if item:
+                results.append(item)
+            else:
+                logger.warning("[Tencent] 获取指数 %s(%s) 失败或数据过期", name, symbol)
+        if results:
+            logger.info("[Tencent] 成功获取 %d 个%s指数行情", len(results), "港股" if region == "hk" else "美股")
+            return results
+        return None
 
     def _fetch_raw_data(self, stock_code: str, start_date: str, end_date: str) -> pd.DataFrame:
         code = normalize_stock_code(stock_code)
@@ -95,6 +151,54 @@ class TencentFetcher(BaseFetcher):
             normalized["pct_chg"] = normalized["close"].pct_change().fillna(0.0) * 100
         normalized = normalized[["date", "open", "high", "low", "close", "volume", "amount", "pct_chg"]]
         return normalized
+
+
+def _parse_tencent_index_quote(
+    fields: list[str],
+    *,
+    code: str,
+    name: str,
+    max_stale_days: int,
+) -> Optional[dict[str, Any]]:
+    """解析 qt.gtimg.cn 波浪号分隔行情：3=现价 4=昨收 5=开盘 30=时间 31=涨跌额 32=涨跌幅 33=最高 34=最低"""
+    if len(fields) < 35:
+        return None
+    try:
+        price = float(fields[3])
+        prev_close = float(fields[4])
+        open_price = float(fields[5])
+        change = float(fields[31])
+        change_pct = float(fields[32])
+        high = float(fields[33])
+        low = float(fields[34])
+    except (TypeError, ValueError):
+        return None
+    if price <= 0 or prev_close <= 0:
+        return None
+    quote_time = fields[30].strip()
+    for fmt in ("%Y/%m/%d %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y%m%d%H%M%S"):
+        try:
+            parsed = datetime.strptime(quote_time, fmt)
+            break
+        except ValueError:
+            parsed = None
+    if parsed is not None and (datetime.now() - parsed) > timedelta(days=max_stale_days):
+        return None
+    amplitude = ((high - low) / prev_close * 100) if (high > 0 and low > 0) else 0.0
+    return {
+        "code": code,
+        "name": name,
+        "current": price,
+        "change": change,
+        "change_pct": change_pct,
+        "open": open_price,
+        "high": high,
+        "low": low,
+        "prev_close": prev_close,
+        "volume": 0.0,
+        "amount": 0.0,
+        "amplitude": amplitude,
+    }
 
 
 def _to_tencent_symbol(stock_code: str) -> str:

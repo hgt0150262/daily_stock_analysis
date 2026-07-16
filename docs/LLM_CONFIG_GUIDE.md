@@ -106,6 +106,8 @@ OPENAI_BASE_URL=https://api.siliconflow.cn/v1
 LITELLM_MODEL=openai/deepseek-ai/DeepSeek-V3 
 ```
 
+兼容说明：如果 `OPENAI_BASE_URL` 只填写域名根地址（例如 `https://gateway.example.com`），系统会自动补齐标准 `/v1` API 路径；如果服务商提供了其他明确路径（例如 `/openai/v2`），系统会原样保留，请以服务商文档为准。
+
 ### 示例 2：使用 DeepSeek 官方接口
 ```env
 # 填入你在 DeepSeek 官方平台申请的 API Key

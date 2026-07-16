@@ -104,6 +104,72 @@ class TestTickFlowMarketReviewFallback(unittest.TestCase):
         self.assertEqual(data, [{"code": "^GSPC"}])
         self.assertEqual(fallback.index_calls, 1)
 
+    def test_manager_merges_partial_yahoo_us_indices_with_tencent_fallback(self):
+        manager = DataFetcherManager.__new__(DataFetcherManager)
+        yahoo = _DummyFetcher(
+            "YfinanceFetcher",
+            indices=[{"code": "VIX", "current": 16.2, "source": "yahoo"}],
+        )
+        tencent = _DummyFetcher(
+            "TencentFetcher",
+            indices=[
+                {"code": "SPX", "current": 7500.0, "source": "tencent"},
+                {"code": "IXIC", "current": 26000.0, "source": "tencent"},
+                {"code": "DJI", "current": 52000.0, "source": "tencent"},
+            ],
+        )
+        manager._fetchers = [tencent, yahoo]
+        manager._get_tickflow_fetcher = lambda: self.fail(
+            "TickFlow should not be called for non-CN indices"
+        )
+
+        data = DataFetcherManager.get_main_indices(manager, region="us")
+
+        self.assertEqual([item["code"] for item in data], ["SPX", "IXIC", "DJI", "VIX"])
+        self.assertEqual(data[-1]["source"], "yahoo")
+        self.assertEqual(yahoo.index_calls, 1)
+        self.assertEqual(tencent.index_calls, 1)
+
+    def test_manager_keeps_yahoo_values_when_tencent_contains_overlap(self):
+        manager = DataFetcherManager.__new__(DataFetcherManager)
+        yahoo = _DummyFetcher(
+            "YfinanceFetcher",
+            indices=[
+                {"code": "SPX", "current": 7501.0, "source": "yahoo"},
+                {"code": "VIX", "current": 16.2, "source": "yahoo"},
+            ],
+        )
+        tencent = _DummyFetcher(
+            "TencentFetcher",
+            indices=[
+                {"code": "SPX", "current": 7500.0, "source": "tencent"},
+                {"code": "IXIC", "current": 26000.0, "source": "tencent"},
+                {"code": "DJI", "current": 52000.0, "source": "tencent"},
+            ],
+        )
+        manager._fetchers = [tencent, yahoo]
+
+        data = DataFetcherManager.get_main_indices(manager, region="us")
+
+        self.assertEqual([item["code"] for item in data], ["SPX", "IXIC", "DJI", "VIX"])
+        self.assertEqual(data[0]["current"], 7501.0)
+        self.assertEqual(data[0]["source"], "yahoo")
+
+    def test_manager_does_not_call_fallback_when_yahoo_us_indices_are_complete(self):
+        manager = DataFetcherManager.__new__(DataFetcherManager)
+        yahoo = _DummyFetcher(
+            "YfinanceFetcher",
+            indices=[{"code": code} for code in ("SPX", "IXIC", "DJI", "VIX")],
+        )
+        tencent = _DummyFetcher("TencentFetcher", indices=[{"code": "SPX"}])
+        manager._fetchers = [tencent, yahoo]
+
+        data = DataFetcherManager.get_main_indices(manager, region="us")
+
+        self.assertEqual([item["code"] for item in data], ["SPX", "IXIC", "DJI", "VIX"])
+        self.assertEqual(yahoo.index_calls, 1)
+        self.assertEqual(tencent.index_calls, 0)
+
     def test_manager_falls_back_when_tickflow_market_stats_fails(self):
         manager = DataFetcherManager.__new__(DataFetcherManager)
         fallback = _DummyFetcher(

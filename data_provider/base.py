@@ -2469,18 +2469,60 @@ class DataFetcherManager:
                 except Exception as e:
                     logger.warning(f"[TickFlowFetcher] 获取指数行情失败: {e}")
 
-        for fetcher in self._fetchers:
+        fetchers = list(self._fetchers)
+        if region != "cn":
+            # 港/美/日/韩/台指数以 Yahoo Finance 为首选；港/美股由腾讯优先补缺。
+            provider_order = {"YfinanceFetcher": 0, "TencentFetcher": 1}
+            fetchers.sort(key=lambda f: provider_order.get(f.name, 2))
+
+        expected_codes = {
+            "hk": ("HSI", "HSTECH", "HSCEI"),
+            "us": ("SPX", "IXIC", "DJI", "VIX"),
+        }.get(region)
+        merged_by_code: Dict[str, Dict[str, Any]] = {}
+
+        def merged_indices() -> List[Dict[str, Any]]:
+            if not expected_codes:
+                return list(merged_by_code.values())
+            ordered = [merged_by_code[code] for code in expected_codes if code in merged_by_code]
+            expected_set = set(expected_codes)
+            ordered.extend(
+                item for code, item in merged_by_code.items() if code not in expected_set
+            )
+            return ordered
+
+        for fetcher in fetchers:
             if region == "cn" and fetcher.name == "TickFlowFetcher":
                 continue
             try:
                 data = fetcher.get_main_indices(region=region)
                 if data:
+                    if expected_codes:
+                        added = 0
+                        for item in data:
+                            if not isinstance(item, dict):
+                                continue
+                            code = str(item.get("code") or "").strip().upper()
+                            if not code or code in merged_by_code:
+                                continue
+                            merged_by_code[code] = item
+                            added += 1
+                        logger.info(
+                            "[%s] 获取指数行情成功，新增 %d 个，累计 %d/%d",
+                            fetcher.name,
+                            added,
+                            len(merged_by_code),
+                            len(expected_codes),
+                        )
+                        if all(code in merged_by_code for code in expected_codes):
+                            return merged_indices()
+                        continue
                     logger.info(f"[{fetcher.name}] 获取指数行情成功")
                     return data
             except Exception as e:
                 logger.warning(f"[{fetcher.name}] 获取指数行情失败: {e}")
                 continue
-        return []
+        return merged_indices()
 
     def get_market_stats(self, *, purpose: str = "unspecified") -> Dict[str, Any]:
         """获取市场涨跌统计（自动切换数据源）"""

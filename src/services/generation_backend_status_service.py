@@ -17,6 +17,7 @@ from src.config import (
     _uses_direct_env_provider,
     channel_allows_empty_api_key,
     get_configured_llm_models,
+    normalize_openai_compatible_base_url,
     normalize_llm_channel_model,
     parse_env_bool,
     resolve_llm_channel_protocol,
@@ -792,7 +793,7 @@ class GenerationBackendStatusService:
     def _openai_base_url_from_map(effective_map: Dict[str, str]) -> Optional[str]:
         explicit = (effective_map.get("OPENAI_BASE_URL") or "").strip()
         if explicit:
-            return explicit
+            return normalize_openai_compatible_base_url(explicit)
         return "https://aihubmix.com/v1" if (effective_map.get("AIHUBMIX_KEY") or "").strip() else None
 
     @classmethod

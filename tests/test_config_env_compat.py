@@ -337,6 +337,44 @@ class ConfigEnvCompatibilityTestCase(unittest.TestCase):
 
     @patch("src.config.setup_env")
     @patch.object(Config, "_parse_litellm_yaml", return_value=[])
+    def test_openai_bare_origin_uses_standard_v1_api_root(
+        self, _mock_parse_litellm_yaml, _mock_setup_env
+    ) -> None:
+        with patch.dict(
+            os.environ,
+            {
+                "STOCK_LIST": "600519",
+                "OPENAI_API_KEY": "test-key",
+                "OPENAI_BASE_URL": "https://gateway.example.com/",
+                "LITELLM_MODEL": "openai/test-model",
+            },
+            clear=True,
+        ):
+            config = Config._load_from_env()
+
+        self.assertEqual(config.openai_base_url, "https://gateway.example.com/v1")
+
+    @patch("src.config.setup_env")
+    @patch.object(Config, "_parse_litellm_yaml", return_value=[])
+    def test_openai_custom_api_path_is_preserved(
+        self, _mock_parse_litellm_yaml, _mock_setup_env
+    ) -> None:
+        with patch.dict(
+            os.environ,
+            {
+                "STOCK_LIST": "600519",
+                "OPENAI_API_KEY": "test-key",
+                "OPENAI_BASE_URL": "https://gateway.example.com/openai/v2/",
+                "LITELLM_MODEL": "openai/test-model",
+            },
+            clear=True,
+        ):
+            config = Config._load_from_env()
+
+        self.assertEqual(config.openai_base_url, "https://gateway.example.com/openai/v2")
+
+    @patch("src.config.setup_env")
+    @patch.object(Config, "_parse_litellm_yaml", return_value=[])
     def test_market_review_region_updates_do_not_change_llm_provider_model_contract(
         self,
         _mock_parse_litellm_yaml,

@@ -99,6 +99,8 @@ OPENAI_BASE_URL=https://api.siliconflow.cn/v1
 LITELLM_MODEL=openai/deepseek-ai/DeepSeek-V3 
 ```
 
+Compatibility note: when `OPENAI_BASE_URL` contains only an origin (for example, `https://gateway.example.com`), the system appends the standard `/v1` API path. Explicit provider paths such as `/openai/v2` are preserved; follow the provider's documentation.
+
 ### Example 2: Using the Official DeepSeek API
 ```env
 # Fill in the API Key requested from the official DeepSeek platform
