@@ -78,16 +78,24 @@ class TestFetchYfTickerData(unittest.TestCase):
 
         self.assertIsNone(result)
 
-    def test_single_row_history_uses_same_as_prev(self):
-        """仅一行数据时 prev_close 等于 current，change_pct 为 0"""
+    def test_single_row_history_returns_none(self):
+        """仅一行数据（限流/降级）时无法计算涨跌幅，应返回 None 以切换兜底数据源"""
         mock_hist = _make_mock_hist(close=5000.0, prev_close=5000.0)
         mock_hist = mock_hist.iloc[[-1]]
         mock_yf = _make_mock_yf(mock_hist)
 
         result = self.fetcher._fetch_yf_ticker_data(mock_yf, '^GSPC', '标普500指数', 'SPX')
 
-        self.assertIsNotNone(result)
-        self.assertEqual(result['change_pct'], 0.0)
+        self.assertIsNone(result)
+
+    def test_nan_close_returns_none(self):
+        """Close 为 NaN 时应返回 None 以切换兜底数据源"""
+        mock_hist = _make_mock_hist(close=float('nan'), prev_close=5000.0)
+        mock_yf = _make_mock_yf(mock_hist)
+
+        result = self.fetcher._fetch_yf_ticker_data(mock_yf, '^GSPC', '标普500指数', 'SPX')
+
+        self.assertIsNone(result)
 
 
 class TestGetUsMainIndices(unittest.TestCase):

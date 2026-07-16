@@ -2469,7 +2469,11 @@ class DataFetcherManager:
                 except Exception as e:
                     logger.warning(f"[TickFlowFetcher] 获取指数行情失败: {e}")
 
-        for fetcher in self._fetchers:
+        fetchers = list(self._fetchers)
+        if region != "cn":
+            # 港/美/日/韩/台指数以 Yahoo Finance 为首选，腾讯行情等其余源兜底
+            fetchers.sort(key=lambda f: 0 if f.name == "YfinanceFetcher" else 1)
+        for fetcher in fetchers:
             if region == "cn" and fetcher.name == "TickFlowFetcher":
                 continue
             try:
