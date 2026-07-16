@@ -393,7 +393,7 @@ jobs:
           CN_RECOMMEND_TOP_N: ${{ vars.CN_RECOMMEND_TOP_N || secrets.CN_RECOMMEND_TOP_N }}
           CN_RECOMMEND_STRATEGY: ${{ vars.CN_RECOMMEND_STRATEGY || secrets.CN_RECOMMEND_STRATEGY }}
           ALPHASIFT_ENABLED: ${{ vars.ALPHASIFT_ENABLED || secrets.ALPHASIFT_ENABLED || 'false' }}
-          
+
           # ==========================================
           # 运行配置 ⬅️ 新增！
           # ==========================================
